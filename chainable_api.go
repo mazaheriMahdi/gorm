@@ -63,21 +63,22 @@ var tableRegexp = regexp.MustCompile(`(?i)(?:.+? AS (\w+)\s*(?:$|,)|^\w+\s+(\w+)
 //	db.Table("users").Take(&result)
 func (db *DB) Table(name string, args ...interface{}) (tx *DB) {
 	tx = db.getInstance()
-	if strings.Contains(name, " ") || strings.Contains(name, "`") || len(args) > 0 {
-		tx.Statement.TableExpr = &clause.Expr{SQL: name, Vars: args}
-		if results := tableRegexp.FindStringSubmatch(name); len(results) == 3 {
+	tableName := tx.NamingStrategy.TableName(name)
+	if strings.Contains(tableName, " ") || strings.Contains(tableName, "`") || len(args) > 0 {
+		tx.Statement.TableExpr = &clause.Expr{SQL: tableName, Vars: args}
+		if results := tableRegexp.FindStringSubmatch(tableName); len(results) == 3 {
 			if results[1] != "" {
 				tx.Statement.Table = results[1]
 			} else {
 				tx.Statement.Table = results[2]
 			}
 		}
-	} else if tables := strings.Split(name, "."); len(tables) == 2 {
-		tx.Statement.TableExpr = &clause.Expr{SQL: tx.Statement.Quote(name)}
+	} else if tables := strings.Split(tableName, "."); len(tables) == 2 {
+		tx.Statement.TableExpr = &clause.Expr{SQL: tx.Statement.Quote(tableName)}
 		tx.Statement.Table = tables[1]
-	} else if name != "" {
-		tx.Statement.TableExpr = &clause.Expr{SQL: tx.Statement.Quote(name)}
-		tx.Statement.Table = name
+	} else if tableName != "" {
+		tx.Statement.TableExpr = &clause.Expr{SQL: tx.Statement.Quote(tableName)}
+		tx.Statement.Table = tableName
 	} else {
 		tx.Statement.TableExpr = nil
 		tx.Statement.Table = ""
@@ -448,9 +449,10 @@ func (db *DB) Assign(attrs ...interface{}) (tx *DB) {
 // Unscoped allows queries to include records marked as deleted,
 // overriding the soft deletion behavior.
 // Example:
-//    var users []User
-//    db.Unscoped().Find(&users)
-//    // Retrieves all users, including deleted ones.
+//
+//	var users []User
+//	db.Unscoped().Find(&users)
+//	// Retrieves all users, including deleted ones.
 func (db *DB) Unscoped() (tx *DB) {
 	tx = db.getInstance()
 	tx.Statement.Unscoped = true
